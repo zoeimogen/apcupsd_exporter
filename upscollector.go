@@ -37,6 +37,12 @@ type UPSCollector struct {
 	LastSelftestTimeSeconds             *prometheus.Desc
 	NominalPowerWatts                   *prometheus.Desc
 	InternalTemperatureCelsius          *prometheus.Desc
+	DelayShutdown                       *prometheus.Desc
+	DelayWake                           *prometheus.Desc
+	LoadApparent                        *prometheus.Desc
+	NominalApparent                     *prometheus.Desc
+	NominalOutputVoltage                *prometheus.Desc
+	LineFrequency                       *prometheus.Desc
 
 	ss StatusSource
 }
@@ -51,7 +57,7 @@ func NewUPSCollector(ss StatusSource) *UPSCollector {
 		Info: prometheus.NewDesc(
 			prometheus.BuildFQName(namespace, "", "info"),
 			"Metadata about a given UPS.",
-			[]string{"ups", "hostname", "model", "status"},
+			[]string{"ups", "hostname", "model", "status", "manufacture_date"},
 			nil,
 		),
 
@@ -174,6 +180,48 @@ func NewUPSCollector(ss StatusSource) *UPSCollector {
 			nil,
 		),
 
+		DelayShutdown: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, "", "delay_shutdown"),
+			"Delay before UPS shutdown after host signal in seconds.",
+			labels,
+			nil,
+		),
+
+		DelayWake: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, "", "delay_wake"),
+			"Delay before UPS startup after power is restored in seconds.",
+			labels,
+			nil,
+		),
+
+		LoadApparent: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, "", "ups_load_apparent"),
+			"Apparent UPS load (Actual VA over Nominal) in Percent.",
+			labels,
+			nil,
+		),
+
+		NominalApparent: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, "", "ups_load_nominal"),
+			"Nominal UPS load in VA.",
+			labels,
+			nil,
+		),
+
+		NominalOutputVoltage: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, "", "output_nominal_volts"),
+			"Nominal power output in Volts.",
+			labels,
+			nil,
+		),
+
+		LineFrequency: prometheus.NewDesc(
+			prometheus.BuildFQName(namespace, "", "line_frequency"),
+			"Input frequency in Hz.",
+			labels,
+			nil,
+		),
+
 		ss: ss,
 	}
 }
@@ -200,6 +248,12 @@ func (c *UPSCollector) Describe(ch chan<- *prometheus.Desc) {
 		c.LastSelftestTimeSeconds,
 		c.NominalPowerWatts,
 		c.InternalTemperatureCelsius,
+		c.DelayShutdown,
+		c.DelayWake,
+		c.LoadApparent,
+		c.NominalApparent,
+		c.NominalOutputVoltage,
+		c.LineFrequency,
 	}
 
 	for _, d := range ds {
@@ -221,7 +275,7 @@ func (c *UPSCollector) Collect(ch chan<- prometheus.Metric) {
 		c.Info,
 		prometheus.GaugeValue,
 		1,
-		s.UPSName, s.Hostname, s.Model, s.Status,
+		s.UPSName, s.Hostname, s.Model, s.Status, s.ManufactureDate.Format(time.RFC3339),
 	)
 
 	ch <- prometheus.MustNewConstMetric(
@@ -340,6 +394,48 @@ func (c *UPSCollector) Collect(ch chan<- prometheus.Metric) {
 		c.InternalTemperatureCelsius,
 		prometheus.GaugeValue,
 		s.InternalTemp,
+		s.UPSName,
+	)
+
+	ch <- prometheus.MustNewConstMetric(
+		c.DelayShutdown,
+		prometheus.GaugeValue,
+		s.DelayShutdown.Seconds(),
+		s.UPSName,
+	)
+
+	ch <- prometheus.MustNewConstMetric(
+		c.DelayWake,
+		prometheus.GaugeValue,
+		s.DelayWake.Seconds(),
+		s.UPSName,
+	)
+
+	ch <- prometheus.MustNewConstMetric(
+		c.LoadApparent,
+		prometheus.GaugeValue,
+		s.LoadApparent,
+		s.UPSName,
+	)
+
+	ch <- prometheus.MustNewConstMetric(
+		c.NominalApparent,
+		prometheus.GaugeValue,
+		s.NominalApparent,
+		s.UPSName,
+	)
+
+	ch <- prometheus.MustNewConstMetric(
+		c.NominalOutputVoltage,
+		prometheus.GaugeValue,
+		s.NominalOutputVoltage,
+		s.UPSName,
+	)
+
+	ch <- prometheus.MustNewConstMetric(
+		c.LineFrequency,
+		prometheus.GaugeValue,
+		s.LineFrequency,
 		s.UPSName,
 	)
 }
